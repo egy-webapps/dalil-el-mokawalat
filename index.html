@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f2547">
+    <title>دليل المقاولات</title>
+    <style>
+        :root {--navy:#0f2547;--orange:#f37021;--bg:#eef1f5;--card:#fff;--text:#14213d;--muted:#6b7280;--border:#d1d5db;}
+        @media (prefers-color-scheme: dark) {
+            :root {--bg:#0b1220;--card:#162036;--text:#f9fafb;--muted:#9ca3af;--border:#374151;}
+        }
+        * {box-sizing: border-box;}
+        body {margin:0; font-family:"Segoe UI",Tahoma,Arial,sans-serif; background:var(--bg); color:var(--text); line-height:1.6;}
+        header {background:var(--navy); color:#fff; padding:20px 16px; border-bottom:4px solid var(--orange);}
+        header h1 {margin:0; font-size:24px;}
+        header p {margin:4px 0 0; color:var(--orange); font-weight:700;}
+        main {max-width:480px; margin:0 auto; padding:16px;}
+        .card {background:var(--card); border-radius:12px; padding:18px; margin-bottom:14px; border:1px solid var(--border);}
+        .card h2 {margin:0 0 10px; font-size:20px;}
+        .muted {color:var(--muted); font-size:14px; margin:0;}
+        label {display:block; margin:14px 0 4px; font-size:15px; font-weight:600;}
+        input, select {width:100%; padding:12px; font-size:16px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text);}
+        input:focus, select:focus {outline:2px solid var(--orange);}
+        button {width:100%; margin-top:16px; padding:14px; font-size:17px; border:0; border-radius:8px; background:var(--orange); color:#fff; font-weight:700; cursor:pointer;}
+        button.sec {background:transparent; color:var(--orange); border:2px solid var(--orange);}
+        .link {background:none; border:0; color:var(--orange); width:auto; padding:6px 0; margin-top:8px;}
+        .msg {margin-top:14px; padding:12px; border-radius:8px; display:none; font-size:15px;}
+        .msg.err {background:#fde8e8; color:#9b1c1c;}
+        .msg.ok {background:#e1f5e7; color:#14532d;}
+        .hide {display:none;}
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>دليل المقاولات</h1>
+    <p>كل المقاولات في مكان واحد</p>
+</header>
+
+<main>
+    <div id="msg" class="msg" role="alert"></div>
+
+    <section id="home" class="card">
+        <h2>أهلاً بك</h2>
+        <p class="muted">سجل حسابك أو ادخل بحسابك الحالي.</p>
+        <button onclick="show('login')">تسجيل الدخول</button>
+        <button class="sec" onclick="show('signup')">إنشاء حساب جديد</button>
+        <p class="note">تجريبية أولى: التسجيل والملف الشخصي فقط، باقي الأقسام قيد بناء.</p>
+    </section>
+
+    <section id="login" class="card hide">
+        <h2>تسجيل الدخول</h2>
+        <form id="loginForm">
+            <label for="l_email">البريد الإلكتروني</label>
+            <input id="l_email" type="email" autocomplete="email" dir="ltr" required>
+            <label for="l_pass">كلمة المرور</label>
+            <input id="l_pass" type="password" autocomplete="current-password" dir="ltr" required>
+            <button type="submit">دخول</button>
+        </form>
+        <button class="link" onclick="show('home')">الرجوع</button>
+    </section>
+</main>
+
+</body>
+</html>
