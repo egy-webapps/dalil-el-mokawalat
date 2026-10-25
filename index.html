@@ -207,4 +207,56 @@ document.getElementById("addForm").addEventListener("submit", async function(e){
   }
   var r = await db.from("companies").insert({
     name: document.getElementById("a_name").value.trim(),
-    activity: document.getElementById("a_activity").value
+    activity: document.getElementById("a_activity").value.trim(),
+    governorate: document.getElementById("a_gov").value.trim(),
+    owner_id: u.data.user.id
+  });
+  btn.disabled = false;
+  if (r.error) { msg(arabicError(r.error), "err"); return; }
+  e.target.reset();
+  show("profile");
+  msg("تمت إضافة الشركة. هتظهر في الدليل بعد المراجعة والتوثيق.", "ok");
+});
+
+document.getElementById("signupForm").addEventListener("submit", async function(e){
+  e.preventDefault();
+  var btn = e.target.querySelector("button");
+  btn.disabled = true;
+  var r = await db.auth.signUp({
+    email: document.getElementById("s_email").value.trim(),
+    password: document.getElementById("s_pass").value,
+    options: { data: { full_name: document.getElementById("s_name").value.trim() } }
+  });
+  btn.disabled = false;
+  if (r.error) { msg(arabicError(r.error), "err"); return; }
+  if (r.data.session) {
+    showProfile(r.data.user);
+  } else {
+    msg("تم إنشاء الحساب. افتح إيميلك واضغط على لينك التأكيد (وبص في Spam)، وبعدها سجّل دخول.", "ok");
+  }
+});
+
+document.getElementById("loginForm").addEventListener("submit", async function(e){
+  e.preventDefault();
+  var btn = e.target.querySelector("button");
+  btn.disabled = true;
+  var r = await db.auth.signInWithPassword({
+    email: document.getElementById("l_email").value.trim(),
+    password: document.getElementById("l_pass").value
+  });
+  btn.disabled = false;
+  if (r.error) { msg(arabicError(r.error), "err"); return; }
+  showProfile(r.data.user);
+});
+
+document.getElementById("logoutBtn").addEventListener("click", async function(){
+  await db.auth.signOut();
+  show("home");
+});
+
+db.auth.getSession().then(function(r){
+  if (r.data.session) showProfile(r.data.session.user);
+});
+</script>
+</body>
+</html>
