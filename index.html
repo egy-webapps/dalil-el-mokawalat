@@ -79,6 +79,7 @@ button.sec{background:transparent;color:var(--orange);border:2px solid var(--ora
 <p>الاسم: <strong id="p_name"></strong></p>
 <p dir="ltr" style="text-align:right">الإيميل: <strong id="p_email"></strong></p>
 <button onclick="openDirectory()">دليل الشركات</button>
+<button class="sec" onclick="show('addco')">إضافة شركة</button>
 <button class="sec" id="logoutBtn">تسجيل الخروج</button>
 </section>
 
@@ -87,6 +88,21 @@ button.sec{background:transparent;color:var(--orange);border:2px solid var(--ora
 <input id="d_search" type="search" placeholder="ابحث بالاسم أو النشاط أو المحافظة">
 <div id="d_list"></div>
 <button class="sec" onclick="show('profile')">رجوع</button>
+</section>
+
+<section id="addco" class="card hide">
+<h2>إضافة شركة</h2>
+<p class="muted">الشركة الجديدة بتظهر في الدليل بعد مراجعتها وتوثيقها.</p>
+<form id="addForm">
+<label for="a_name">اسم الشركة</label>
+<input id="a_name" type="text" required>
+<label for="a_activity">النشاط</label>
+<input id="a_activity" type="text" placeholder="مثال: مقاولات عامة" required>
+<label for="a_gov">المحافظة</label>
+<input id="a_gov" type="text" required>
+<button type="submit">إضافة</button>
+</form>
+<button class="link" onclick="show('profile')">رجوع</button>
 </section>
 </main>
 
@@ -98,7 +114,7 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 var allCompanies = [];
 
 function show(id){
-  ["home","login","signup","profile","directory"].forEach(function(s){
+  ["home","login","signup","profile","directory","addco"].forEach(function(s){
     document.getElementById(s).classList.toggle("hide", s !== id);
   });
   hideMsg();
@@ -117,6 +133,7 @@ function arabicError(e){
   if (t.indexOf("already registered") > -1) return "الإيميل ده مسجل قبل كده. جرّب تسجيل الدخول.";
   if (t.indexOf("Password should") > -1) return "كلمة المرور لازم تكون 6 أحرف على الأقل.";
   if (t.indexOf("rate limit") > -1) return "محاولات كتير. استنى شوية وجرّب تاني.";
+  if (t.indexOf("row-level security") > -1) return "غير مسموح بالعملية دي.";
   return "حصل خطأ: " + t;
 }
 function showProfile(user){
@@ -178,45 +195,16 @@ document.getElementById("d_search").addEventListener("input", function(e){
   renderList(e.target.value);
 });
 
-document.getElementById("signupForm").addEventListener("submit", async function(e){
+document.getElementById("addForm").addEventListener("submit", async function(e){
   e.preventDefault();
   var btn = e.target.querySelector("button");
   btn.disabled = true;
-  var r = await db.auth.signUp({
-    email: document.getElementById("s_email").value.trim(),
-    password: document.getElementById("s_pass").value,
-    options: { data: { full_name: document.getElementById("s_name").value.trim() } }
-  });
-  btn.disabled = false;
-  if (r.error) { msg(arabicError(r.error), "err"); return; }
-  if (r.data.session) {
-    showProfile(r.data.user);
-  } else {
-    msg("تم إنشاء الحساب. افتح إيميلك واضغط على لينك التأكيد (وبص في Spam)، وبعدها سجّل دخول.", "ok");
+  var u = await db.auth.getUser();
+  if (u.error || !u.data.user) {
+    btn.disabled = false;
+    msg("لازم تسجّل دخول الأول.", "err");
+    return;
   }
-});
-
-document.getElementById("loginForm").addEventListener("submit", async function(e){
-  e.preventDefault();
-  var btn = e.target.querySelector("button");
-  btn.disabled = true;
-  var r = await db.auth.signInWithPassword({
-    email: document.getElementById("l_email").value.trim(),
-    password: document.getElementById("l_pass").value
-  });
-  btn.disabled = false;
-  if (r.error) { msg(arabicError(r.error), "err"); return; }
-  showProfile(r.data.user);
-});
-
-document.getElementById("logoutBtn").addEventListener("click", async function(){
-  await db.auth.signOut();
-  show("home");
-});
-
-db.auth.getSession().then(function(r){
-  if (r.data.session) showProfile(r.data.session.user);
-});
-</script>
-</body>
-</html>
+  var r = await db.from("companies").insert({
+    name: document.getElementById("a_name").value.trim(),
+    activity: document.getElementById("a_activity").value
