@@ -1,151 +1,141 @@
-const SUPABASE_URL = "https://ymmyijtuaqkiyjenmgjh.supabase.co";
-const SUPABASE_KEY = "sb_publishable_0T07DGMMB6Owg10Sl6zHyw_2PZLAgBL";
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-var allCompanies = [];
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f2547">
+<title>دليل المقاولات</title>
+<style>
+:root{--navy:#0f2547;--orange:#f37021;--bg:#eef1f5;--card:#fff;--text:#14213d;--muted:#6b7280;--border:#d1d5db}
+@media (prefers-color-scheme:dark){:root{--bg:#0b1220;--card:#162036;--text:#f9fafb;--muted:#9ca3af;--border:#374151}}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Tahoma,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+header{background:var(--navy);color:#fff;padding:20px 16px;border-bottom:4px solid var(--orange)}
+header h1{margin:0;font-size:24px}
+header p{margin:4px 0 0;color:var(--orange);font-weight:700}
+main{max-width:480px;margin:0 auto;padding:16px}
+.card{background:var(--card);border-radius:12px;padding:18px;margin-bottom:14px;border:1px solid var(--border)}
+.card h2{margin:0 0 10px;font-size:20px}
+.muted{color:var(--muted);font-size:14px;margin:0}
+label{display:block;margin:14px 0 4px;font-size:15px;font-weight:600}
+input,select,textarea{width:100%;padding:12px;font-size:16px;font-family:inherit;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--orange)}
+button{width:100%;margin-top:16px;padding:14px;font-size:17px;border:0;border-radius:8px;background:var(--orange);color:#fff;font-weight:700;cursor:pointer}
+button:disabled{opacity:.6}
+button.sec{background:transparent;color:var(--orange);border:2px solid var(--orange)}
+.link{background:none;border:0;color:var(--orange);width:auto;padding:6px 0;margin-top:8px}
+.msg{margin-top:14px;padding:12px;border-radius:8px;display:none;font-size:15px}
+.msg.err{background:#fde8e8;color:#9b1c1c}
+.msg.ok{background:#e1f5e7;color:#14532d}
+.co{border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:10px}
+.co b{display:block;font-size:17px}
+.hide{display:none}
+</style>
+</head>
+<body>
+<header>
+<h1>دليل المقاولات</h1>
+<p>كل المقاولات في مكان واحد</p>
+</header>
+<main>
+<div id="msg" class="msg" role="alert"></div>
 
-function show(id){
-  ["home","login","signup","profile","directory","addco","tenders","addtender"].forEach(function(s){
-    document.getElementById(s).classList.toggle("hide", s !== id);
-  });
-  hideMsg();
-}
-function hideMsg(){ document.getElementById("msg").style.display = "none"; }
-function msg(text, type){
-  var m = document.getElementById("msg");
-  m.textContent = text;
-  m.className = "msg " + type;
-  m.style.display = "block";
-}
-function arabicError(e){
-  var t = (e && e.message) || "";
-  if (t.indexOf("Invalid login") > -1) return "الإيميل أو كلمة المرور غلط.";
-  if (t.indexOf("not confirmed") > -1) return "لازم تأكد الإيميل الأول. افتح الرسالة اللي وصلتك واضغط على اللينك.";
-  if (t.indexOf("already registered") > -1) return "الإيميل ده مسجل قبل كده. جرّب تسجيل الدخول.";
-  if (t.indexOf("Password should") > -1) return "كلمة المرور لازم تكون 6 أحرف على الأقل.";
-  if (t.indexOf("rate limit") > -1) return "محاولات كتير. استنى شوية وجرّب تاني.";
-  if (t.indexOf("row-level security") > -1) return "غير مسموح بالعملية دي.";
-  return "حصل خطأ: " + t;
-}
-function showProfile(user){
-  var meta = user.user_metadata || {};
-  document.getElementById("p_name").textContent = meta.full_name || "-";
-  document.getElementById("p_email").textContent = user.email;
-  show("profile");
-}
-function line(parent, text){
-  var d = document.createElement("div");
-  d.className = "muted";
-  d.textContent = text;
-  parent.appendChild(d);
-}
-function emptyNote(list, text){
-  var p = document.createElement("p");
-  p.className = "muted";
-  p.style.marginTop = "12px";
-  p.textContent = text;
-  list.appendChild(p);
-}
+<section id="home" class="card">
+<h2>أهلاً بك</h2>
+<p class="muted">سجل حسابك أو ادخل بحسابك الحالي.</p>
+<button onclick="show('login')">تسجيل الدخول</button>
+<button class="sec" onclick="show('signup')">إنشاء حساب جديد</button>
+<p class="muted" style="margin-top:14px">نسخة تجريبية: التسجيل والملف الشخصي ودليل الشركات والمناقصات، باقي الأقسام قيد البناء.</p>
+</section>
 
-function renderList(q){
-  var list = document.getElementById("d_list");
-  list.textContent = "";
-  q = (q || "").trim().toLowerCase();
-  var rows = allCompanies.filter(function(c){
-    var s = ((c.name||"") + " " + (c.activity||"") + " " + (c.governorate||"")).toLowerCase();
-    return s.indexOf(q) > -1;
-  });
-  if (!rows.length) { emptyNote(list, "لا توجد شركات مطابقة."); return; }
-  rows.forEach(function(c){
-    var d = document.createElement("div");
-    d.className = "co";
-    var b = document.createElement("b");
-    b.textContent = c.name || "-";
-    d.appendChild(b);
-    line(d, "النشاط: " + (c.activity || "-"));
-    line(d, "المحافظة: " + (c.governorate || "-"));
-    list.appendChild(d);
-  });
-}
+<section id="login" class="card hide">
+<h2>تسجيل الدخول</h2>
+<form id="loginForm">
+<label for="l_email">البريد الإلكتروني</label>
+<input id="l_email" type="email" autocomplete="email" dir="ltr" required>
+<label for="l_pass">كلمة المرور</label>
+<input id="l_pass" type="password" autocomplete="current-password" dir="ltr" required>
+<button type="submit">دخول</button>
+</form>
+<button class="link" onclick="show('home')">الرجوع</button>
+</section>
 
-async function openDirectory(){
-  show("directory");
-  document.getElementById("d_search").value = "";
-  var list = document.getElementById("d_list");
-  list.textContent = "جاري التحميل...";
-  var r = await db.from("companies")
-    .select("id,name,activity,governorate")
-    .order("created_at", { ascending: false });
-  if (r.error) {
-    list.textContent = "";
-    msg("تعذر تحميل الدليل: " + r.error.message, "err");
-    return;
-  }
-  allCompanies = r.data || [];
-  renderList("");
-}
-document.getElementById("d_search").addEventListener("input", function(e){
-  renderList(e.target.value);
-});
+<section id="signup" class="card hide">
+<h2>إنشاء حساب جديد</h2>
+<form id="signupForm">
+<label for="s_name">الاسم</label>
+<input id="s_name" type="text" autocomplete="name" required>
+<label for="s_email">البريد الإلكتروني</label>
+<input id="s_email" type="email" autocomplete="email" dir="ltr" required>
+<label for="s_pass">كلمة المرور (6 أحرف على الأقل)</label>
+<input id="s_pass" type="password" autocomplete="new-password" dir="ltr" minlength="6" required>
+<button type="submit">تسجيل</button>
+</form>
+<button class="link" onclick="show('home')">الرجوع</button>
+</section>
 
-document.getElementById("addForm").addEventListener("submit", async function(e){
-  e.preventDefault();
-  var btn = e.target.querySelector("button");
-  btn.disabled = true;
-  var u = await db.auth.getUser();
-  if (u.error || !u.data.user) {
-    btn.disabled = false;
-    msg("لازم تسجّل دخول الأول.", "err");
-    return;
-  }
-  var r = await db.from("companies").insert({
-    name: document.getElementById("a_name").value.trim(),
-    activity: document.getElementById("a_activity").value.trim(),
-    governorate: document.getElementById("a_gov").value.trim(),
-    owner_id: u.data.user.id
-  });
-  btn.disabled = false;
-  if (r.error) { msg(arabicError(r.error), "err"); return; }
-  e.target.reset();
-  show("profile");
-  msg("تمت إضافة الشركة. هتظهر في الدليل بعد المراجعة والتوثيق.", "ok");
-});
+<section id="profile" class="card hide">
+<h2>ملفك الشخصي</h2>
+<p>الاسم: <strong id="p_name"></strong></p>
+<p dir="ltr" style="text-align:right">الإيميل: <strong id="p_email"></strong></p>
+<button onclick="openDirectory()">دليل الشركات</button>
+<button onclick="openTenders()">المناقصات</button>
+<button class="sec" onclick="show('addco')">إضافة شركة</button>
+<button class="sec" onclick="openAddTender()">إضافة مناقصة</button>
+<button class="sec" id="logoutBtn">تسجيل الخروج</button>
+</section>
 
-document.getElementById("signupForm").addEventListener("submit", async function(e){
-  e.preventDefault();
-  var btn = e.target.querySelector("button");
-  btn.disabled = true;
-  var r = await db.auth.signUp({
-    email: document.getElementById("s_email").value.trim(),
-    password: document.getElementById("s_pass").value,
-    options: { data: { full_name: document.getElementById("s_name").value.trim() } }
-  });
-  btn.disabled = false;
-  if (r.error) { msg(arabicError(r.error), "err"); return; }
-  if (r.data.session) {
-    showProfile(r.data.user);
-  } else {
-    msg("تم إنشاء الحساب. افتح إيميلك واضغط على لينك التأكيد (وبص في Spam)، وبعدها سجّل دخول.", "ok");
-  }
-});
+<section id="directory" class="card hide">
+<h2>دليل الشركات</h2>
+<input id="d_search" type="search" placeholder="ابحث بالاسم أو النشاط أو المحافظة">
+<div id="d_list"></div>
+<button class="sec" onclick="show('profile')">رجوع</button>
+</section>
 
-document.getElementById("loginForm").addEventListener("submit", async function(e){
-  e.preventDefault();
-  var btn = e.target.querySelector("button");
-  btn.disabled = true;
-  var r = await db.auth.signInWithPassword({
-    email: document.getElementById("l_email").value.trim(),
-    password: document.getElementById("l_pass").value
-  });
-  btn.disabled = false;
-  if (r.error) { msg(arabicError(r.error), "err"); return; }
-  showProfile(r.data.user);
-});
+<section id="addco" class="card hide">
+<h2>إضافة شركة</h2>
+<p class="muted">الشركة الجديدة بتظهر في الدليل بعد مراجعتها وتوثيقها.</p>
+<form id="addForm">
+<label for="a_name">اسم الشركة</label>
+<input id="a_name" type="text" required>
+<label for="a_activity">النشاط</label>
+<input id="a_activity" type="text" placeholder="مثال: مقاولات عامة" required>
+<label for="a_gov">المحافظة</label>
+<input id="a_gov" type="text" required>
+<button type="submit">إضافة</button>
+</form>
+<button class="link" onclick="show('profile')">رجوع</button>
+</section>
 
-document.getElementById("logoutBtn").addEventListener("click", async function(){
-  await db.auth.signOut();
-  show("home");
-});
+<section id="tenders" class="card hide">
+<h2>المناقصات</h2>
+<input id="t_search" type="search" placeholder="ابحث بالعنوان أو المحافظة">
+<div id="t_list"></div>
+<button class="sec" onclick="show('profile')">رجوع</button>
+</section>
 
-db.auth.getSession().then(function(r){
-  if (r.data.session) showProfile(r.data.session.user);
-});
+<section id="addtender" class="card hide">
+<h2>إضافة مناقصة</h2>
+<p class="muted">متاحة لأصحاب الشركات الموثّقة فقط.</p>
+<form id="tenderForm">
+<label for="t_company">الشركة</label>
+<select id="t_company" required></select>
+<label for="t_title">عنوان المناقصة</label>
+<input id="t_title" type="text" required>
+<label for="t_desc">التفاصيل</label>
+<textarea id="t_desc" rows="4"></textarea>
+<label for="t_gov">المحافظة</label>
+<input id="t_gov" type="text">
+<label for="t_deadline">آخر موعد للتقديم</label>
+<input id="t_deadline" type="date">
+<button type="submit" id="t_btn">نشر المناقصة</button>
+</form>
+<button class="link" onclick="show('profile')">رجوع</button>
+</section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js"></script>
+<script src="tenders.js"></script>
+</body>
+  </html>
