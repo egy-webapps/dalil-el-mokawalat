@@ -3,7 +3,7 @@
    بيضيف نفسه لوحده: قسم جديد + زرار في الملف الشخصي. مفيش تعديل تاني مطلوب. */
 (function () {
   'use strict';
-  var KEY = 'ir_requests_v1', PH_KEY = 'ir_consultant_phone';
+  var KEY = 'ir_requests_v1', PH_KEY = 'ir_consultant_phone', PRJ_KEY = 'ir_project_name';
 
   var ST = {
     pending:  ['قيد المراجعة', '#92400e', '#fef3c7'],
@@ -56,6 +56,9 @@
     '<p class="muted">جهّز طلب الفحص، شاركه واتساب، وتابع ردود الاستشاري.</p>' +
 
     '<form id="irForm" autocomplete="off">' +
+      '<label for="ir_proj">اسم المشروع</label>' +
+      '<input id="ir_proj" type="text" required placeholder="مثال: برج النخيل - القاهرة الجديدة">' +
+
       '<label for="ir_what">ما المراد فحصه؟</label>' +
       '<input id="ir_what" type="text" required placeholder="مثال: حدادة ونجارة حائط">' +
       '<div class="chips" id="irChips"></div>' +
@@ -89,7 +92,7 @@
     '</div>' +
 
     '<h2 style="margin-top:26px">سجل الطلبات</h2>' +
-    '<input id="ir_q" type="search" placeholder="ابحث بالرقم أو البند أو الموقع أو الملاحظات">' +
+    '<input id="ir_q" type="search" placeholder="ابحث بالرقم أو المشروع أو البند أو الموقع أو الملاحظات">' +
     '<select id="ir_f" style="margin-top:8px">' +
       '<option value="">كل الحالات</option>' +
       '<option value="pending">قيد المراجعة</option>' +
@@ -109,6 +112,7 @@
     return [
       '*طلب فحص هندسي (IR) رقم: ' + r.num + '*',
       '',
+      'المشروع: ' + (r.proj || '-'),
       'البند: ' + r.what,
       'المبنى / القطاع: ' + r.bld,
       'المحاور: ' + (r.grid || '-'),
@@ -128,11 +132,10 @@
   /* ---------- السجل ---------- */
   function render() {
     var list = load(), q = $('ir_q').value.trim().toLowerCase(), f = $('ir_f').value;
-    var phone = localStorage.getItem(PH_KEY) || '';
     var rows = list.filter(function (r) {
       if (f && r.status !== f) return false;
       if (!q) return true;
-      return [r.num, r.what, r.bld, r.grid, r.lvl, r.sd, r.notes].join(' ').toLowerCase().indexOf(q) > -1;
+      return [r.num, r.proj, r.what, r.bld, r.grid, r.lvl, r.sd, r.notes].join(' ').toLowerCase().indexOf(q) > -1;
     });
     $('irCount').textContent = rows.length + ' من ' + list.length + ' طلب';
     if (!rows.length) {
@@ -146,7 +149,8 @@
       }).join('');
       return '<tr data-id="' + r.id + '">' +
         '<td><b>' + esc(r.num) + '</b><br><span class="muted">' + esc(r.sub) + '</span></td>' +
-        '<td><b>' + esc(r.what) + '</b><br><span class="muted">' + esc(r.bld) +
+        '<td><b>' + esc(r.what) + '</b><br><span class="muted">' +
+          (r.proj ? 'مشروع: ' + esc(r.proj) + '<br>' : '') + esc(r.bld) +
           (r.grid ? ' | محاور ' + esc(r.grid) : '') + (r.lvl ? ' | منسوب ' + esc(r.lvl) : '') +
           (r.sd ? '<br>SD: ' + esc(r.sd) : '') + '</span></td>' +
         '<td>' + esc(fmtDT(r.when)) + '</td>' +
@@ -174,6 +178,7 @@
 
     $('ir_sub').value = today();
     $('ir_phone').value = localStorage.getItem(PH_KEY) || '';
+    $('ir_proj').value = localStorage.getItem(PRJ_KEY) || '';
 
     $('irChips').innerHTML = CHIPS.map(function (c) {
       return '<button type="button" class="chip" data-v="' + esc(c) + '">' + esc(c) + '</button>';
@@ -191,6 +196,7 @@
       var r = {
         id: 'ir' + Date.now(),
         num: 'IR-' + ('00' + n).slice(-3),
+        proj: $('ir_proj').value.trim(),
         what: $('ir_what').value.trim(),
         bld: $('ir_bld').value.trim(),
         grid: $('ir_grid').value.trim(),
@@ -204,6 +210,7 @@
       list.unshift(r);
       save(list);
       localStorage.setItem(PH_KEY, $('ir_phone').value.trim());
+      localStorage.setItem(PRJ_KEY, r.proj);
       last = r;
       $('irText').textContent = buildText(r);
       $('irPreview').classList.remove('hide');
