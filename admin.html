@@ -19,6 +19,7 @@ main{max-width:480px;margin:0 auto;padding:16px}
 button{width:100%;margin-top:12px;padding:12px;font-size:16px;border:0;border-radius:8px;background:var(--orange);color:#fff;font-weight:700;cursor:pointer}
 button:disabled{opacity:.6}
 button.sec{background:transparent;color:var(--orange);border:2px solid var(--orange)}
+button.del{background:#b91c1c;color:#fff}
 .msg{margin-top:14px;padding:12px;border-radius:8px;display:none;font-size:15px}
 .msg.err{background:#fde8e8;color:#9b1c1c}
 .msg.ok{background:#e1f5e7;color:#14532d}
@@ -32,7 +33,7 @@ a{color:var(--orange);display:inline-block;margin-top:12px}
 <main>
 <div id="msg" class="msg" role="alert"></div>
 <section class="card">
-<h2>توثيق الشركات والاشتراكات</h2>
+<h2>الشركات والاشتراكات</h2>
 <p id="status" class="muted">جاري التحقق...</p>
 <div id="list"></div>
 <a href="index.html">الرجوع للموقع</a>
@@ -77,6 +78,14 @@ async function setSub(id, active){
   load();
 }
 
+async function delCo(id, name){
+  if (!confirm("متأكد إنك عايز تمسح شركة " + name + " نهائياً؟ مفيش رجوع.")) { load(); return; }
+  var r = await db.rpc("admin_delete_company", { p_company: id });
+  if (r.error) { msg("تعذر المسح: " + r.error.message, "err"); load(); return; }
+  msg("تم مسح الشركة.", "ok");
+  load();
+}
+
 async function load(){
   var list = document.getElementById("list");
   list.textContent = "";
@@ -114,6 +123,15 @@ async function load(){
       setSub(c.id, !subOn);
     });
     d.appendChild(sbtn);
+
+    var xbtn = document.createElement("button");
+    xbtn.textContent = "مسح الشركة";
+    xbtn.className = "del";
+    xbtn.addEventListener("click", function(){
+      xbtn.disabled = true;
+      delCo(c.id, c.name || "-");
+    });
+    d.appendChild(xbtn);
 
     list.appendChild(d);
   });
