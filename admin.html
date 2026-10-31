@@ -32,7 +32,7 @@ a{color:var(--orange);display:inline-block;margin-top:12px}
 <main>
 <div id="msg" class="msg" role="alert"></div>
 <section class="card">
-<h2>توثيق الشركات</h2>
+<h2>توثيق الشركات والاشتراكات</h2>
 <p id="status" class="muted">جاري التحقق...</p>
 <div id="list"></div>
 <a href="index.html">الرجوع للموقع</a>
@@ -64,11 +64,24 @@ async function setStatus(id, status){
   load();
 }
 
+async function setSub(id, active){
+  var ends = null;
+  if (active) {
+    var d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    ends = d.toISOString().slice(0, 10);
+  }
+  var r = await db.rpc("admin_set_company_subscription", { p_company: id, p_active: active, p_ends: ends });
+  if (r.error) { msg("حصل خطأ: " + r.error.message, "err"); return; }
+  msg(active ? "تم تفعيل الاشتراك لمدة شهر." : "تم إيقاف الاشتراك.", "ok");
+  load();
+}
+
 async function load(){
   var list = document.getElementById("list");
   list.textContent = "";
   var r = await db.from("companies")
-    .select("id,name,activity,governorate,verification_status")
+    .select("id,name,activity,governorate,verification_status,subscription_active,subscription_ends_at")
     .order("created_at", { ascending: false });
   if (r.error) { msg("تعذر تحميل الشركات: " + r.error.message, "err"); return; }
   if (!r.data.length) { line(list, "لا توجد شركات."); return; }
@@ -90,6 +103,18 @@ async function load(){
       setStatus(c.id, ok ? "unverified" : "verified");
     });
     d.appendChild(btn);
+
+    var subOn = c.subscription_active === true;
+    line(d, "الاشتراك: " + (subOn ? "مفعّل" + (c.subscription_ends_at ? " لحد " + c.subscription_ends_at : "") : "موقوف"));
+    var sbtn = document.createElement("button");
+    sbtn.textContent = subOn ? "إيقاف الاشتراك" : "تفعيل الاشتراك (شهر)";
+    if (subOn) sbtn.className = "sec";
+    sbtn.addEventListener("click", function(){
+      sbtn.disabled = true;
+      setSub(c.id, !subOn);
+    });
+    d.appendChild(sbtn);
+
     list.appendChild(d);
   });
 }
@@ -112,4 +137,4 @@ async function init(){
 init();
 </script>
 </body>
-  </html>
+</html>
