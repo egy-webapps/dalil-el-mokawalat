@@ -51,6 +51,14 @@ function ded(){return ex.deds.reduce(function(s,r){return s+dv(r)},0)}
 function net(){return gross()-ded()}
 function cum(){return sum(ex.works,"v")+sum(ex.extras,"v")}
 
+async function active(id){
+  var r=await db.from("companies").select("subscription_active,subscription_ends_at").eq("id",id).single();
+  if(r.error||!r.data)return true;
+  var d=r.data;
+  if(d.subscription_active!==true)return false;
+  if(d.subscription_ends_at&&d.subscription_ends_at<new Date().toISOString().slice(0,10))return false;
+  return true
+}
 async function init(){
   var s=await db.auth.getSession();
   if(!s.data.session){app.textContent="سجّل دخول من التطبيق الأول.";return}
@@ -66,8 +74,14 @@ async function init(){
 }
 async function list(){
   ex=null;eid=null;
+  var ok=await active(cid);
+  var sel='<div class="card"><h2>الشركة</h2><select id="co">'+cos.map(function(c){return'<option value="'+c.id+'"'+(c.id==cid?" selected":"")+'>'+esc(c.name)+'</option>'}).join("")+'</select>';
+  if(!ok){
+    app.innerHTML=sel+'</div><div class="card" style="border-color:#b91c1c"><h2 style="color:#b91c1c">اشتراكك موقوف</h2><div class="m">اشتراك الشركة موقوف أو منتهي. تواصل مع الإدارة لتفعيله.</div></div>';
+    return
+  }
   var r=await db.from("extracts").select("id,title,created_at").eq("company_id",cid).order("created_at",{ascending:false});
-  var h='<div class="card"><h2>الشركة</h2><select id="co">'+cos.map(function(c){return'<option value="'+c.id+'"'+(c.id==cid?" selected":"")+'>'+esc(c.name)+'</option>'}).join("")+'</select><button data-act="new">+ مستخلص جديد</button></div><div class="card"><h2>المستخلصات المحفوظة</h2>';
+  var h=sel+'<button data-act="new">+ مستخلص جديد</button></div><div class="card"><h2>المستخلصات المحفوظة</h2>';
   if(r.error)h+='<div class="m">'+esc(r.error.message)+'</div>';
   else if(!r.data.length)h+='<div class="m">لا توجد مستخلصات.</div>';
   else r.data.forEach(function(x){h+='<button class="s" data-open="'+x.id+'">'+esc(x.title||"مستخلص")+' - '+x.created_at.slice(0,10)+'</button>'});
