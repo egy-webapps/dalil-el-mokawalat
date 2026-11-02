@@ -4,7 +4,6 @@
     "sb_publishable_0T07DGMMB6Owg10Sl6zHyw_2PZLAgBL"
   );
 
-  /* ---------- أزرار المستخلصات ولوحة الأدمن ---------- */
   async function add() {
     var box = document.getElementById("profile");
     if (!box) return;
@@ -29,7 +28,6 @@
     box.appendChild(b);
   }
 
-  /* ---------- قفل الاشتراك ---------- */
   function lockScreen() {
     if (document.getElementById("subLock")) return;
     var o = document.createElement("div");
@@ -46,43 +44,19 @@
     document.body.appendChild(o);
     document.documentElement.style.overflow = "hidden";
   }
+
   function unlockScreen() {
     var o = document.getElementById("subLock");
     if (o) o.remove();
     document.documentElement.style.overflow = "";
   }
-  function isActive(c) {
-    if (c.subscription_active !== true) return false;
-    if (c.subscription_ends_at && c.subscription_ends_at < new Date().toISOString().slice(0, 10)) return false;
-    return true;
-  }
-  async function myCompanies(uid) {
-    var m = {};
-    var cols = "id,subscription_active,subscription_ends_at";
-    var a = await sb.from("companies").select(cols).eq("owner_id", uid);
-    if (a.error) return null;
-    (a.data || []).forEach(function (c) { m[c.id] = c; });
-    var t = await sb.from("company_team").select("company_id").eq("user_id", uid);
-    if (t.error) return null;
-    var ids = (t.data || []).map(function (x) { return x.company_id; })
-      .filter(function (i) { return !m[i]; });
-    if (ids.length) {
-      var b = await sb.from("companies").select(cols).in("id", ids);
-      if (b.error) return null;
-      (b.data || []).forEach(function (c) { m[c.id] = c; });
-    }
-    return Object.keys(m).map(function (k) { return m[k]; });
-  }
+
   async function check() {
     var s = await sb.auth.getSession();
     if (!s.data.session) { unlockScreen(); return; }
-    var uid = s.data.session.user.id;
-    var p = await sb.from("profiles").select("platform_role").eq("id", uid).single();
-    if (!p.error && p.data && p.data.platform_role === "admin") { unlockScreen(); return; }
-    var list = await myCompanies(uid);
-    if (list === null) return;
-    if (!list.length) { unlockScreen(); return; }
-    if (list.some(isActive)) unlockScreen(); else lockScreen();
+    var r = await sb.rpc("my_access_locked");
+    if (r.error) return;
+    if (r.data === true) lockScreen(); else unlockScreen();
   }
 
   var lastUid = null;
