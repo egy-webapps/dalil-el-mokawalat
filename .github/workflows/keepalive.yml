@@ -1,1 +1,13 @@
-
+name: keep-supabase-awake
+on:
+  schedule:
+    - cron: "0 6 */3 * *"
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        run: |
+          curl -fsS "https://ymmyijtuaqkiyjenmgjh.supabase.co/rest/v1/companies?select=id&limit=1" \
+            -H "apikey: sb_publishable_0T07DGMMB6Owg10Sl6zHyw_2PZLAgBL"
