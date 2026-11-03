@@ -9,9 +9,10 @@
       if (cls) e.className = cls;
       return e;
     }
-    function field(type, ph, req){
+    function field(type, ph, req, dec){
       var i = document.createElement("input");
       i.type = type; i.placeholder = ph || "";
+      if (dec) i.setAttribute("inputmode", "decimal");
       if (req) i.required = true;
       i.style.marginBottom = "8px";
       return i;
@@ -21,7 +22,29 @@
       var d = new Date();
       return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
     }
-    function num(n){ return "\u2066" + Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 3 }) + "\u2069"; }
+
+    /* يقرأ الأرقام عربي أو إنجليزي، وبيرجّع NaN لو الكتابة مش رقم صحيح */
+    function toNum(v){
+      var s = String(v == null ? "" : v).trim();
+      s = s.replace(/[\u0660-\u0669]/g, function(d){ return String(d.charCodeAt(0) - 1632); })
+           .replace(/[\u06F0-\u06F9]/g, function(d){ return String(d.charCodeAt(0) - 1776); })
+           .replace(/\u066C/g, "")
+           .replace(/[\u066B\u060C,]/g, ".")
+           .replace(/\s/g, "");
+      if (!/^(\d+\.?\d*|\.\d+)$/.test(s)) return NaN;
+      return Number(s);
+    }
+    function r3(x){ return Math.round((Number(x) || 0) * 1000) / 1000; }
+
+    /* تنسيق الرقم للعرض: من غير أي حروف اتجاه مخفية */
+    function num(n){
+      var v = r3(n);
+      var neg = v < 0;
+      v = Math.abs(v);
+      var p = v.toFixed(3).replace(/\.?0+$/, "").split(".");
+      var ip = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      return (neg ? "-" : "") + ip + (p[1] ? "." + p[1] : "");
+    }
 
     var sec = el("section", null, "card hide");
     sec.id = "stock";
@@ -86,15 +109,17 @@
       var f = el("form");
       var n = field("text", "اسم الصنف (مثال: أسمنت)", true);
       var un = field("text", "الوحدة (مثال: كيس، طن، متر)");
-      var mn = field("number", "الحد الأدنى للتنبيه (اختياري)");
-      mn.min = "0"; mn.step = "any";
+      var mn = field("text", "الحد الأدنى للتنبيه (اختياري)", false, true);
       var ab = el("button", "إضافة صنف");
       ab.type = "submit";
       f.appendChild(n); f.appendChild(un); f.appendChild(mn); f.appendChild(ab);
       f.addEventListener("submit", async function(e){
         e.preventDefault();
+        var minRaw = mn.value.trim();
+        var minVal = minRaw ? toNum(minRaw) : 0;
+        if (isNaN(minVal) || minVal < 0) { msg("الحد الأدنى لازم يكون رقم صحيح.", "err"); return; }
         ab.disabled = true;
-        var r = await db.from("stock_items").insert({ company_id: company, name: n.value.trim(), unit: un.value.trim() || "قطعة", min_qty: Number(mn.value) || 0 });
+        var r = await db.from("stock_items").insert({ company_id: company, name: n.value.trim(), unit: un.value.trim() || "قطعة", min_qty: r3(minVal) });
         ab.disabled = false;
         if (r.error) {
           if (String(r.error.message || "").indexOf("duplicate") > -1) msg("الصنف ده موجود قبل كده.", "err");
@@ -135,7 +160,7 @@
       if (!items.length) { emptyNote(list, "لسه مفيش أصناف. ضيف أول صنف من فوق."); return; }
 
       items.forEach(function(x){
-        var cur = bal[x.id] || 0;
+        var cur = r3(bal[x.id] || 0);
         var low = Number(x.min_qty) > 0 && cur <= Number(x.min_qty);
         var c = el("div", null, "co");
         c.appendChild(el("b", x.name));
@@ -156,16 +181,16 @@
           op.value = o[0];
           kd.appendChild(op);
         });
-        var q = field("number", "الكمية", true);
-        q.min = "0.001"; q.step = "any";
+        var q = field("text", "الكمية", true, true);
         var nt = field("text", "ملاحظة (اختياري)");
         var mb = el("button", "تسجيل الحركة");
         mb.type = "submit";
         mf.appendChild(kd); mf.appendChild(q); mf.appendChild(nt); mf.appendChild(mb);
         mf.addEventListener("submit", async function(e){
           e.preventDefault();
-          var qty = Number(q.value);
-          if (!(qty > 0)) { msg("اكتب كمية أكبر من صفر.", "err"); return; }
+          var qty = toNum(q.value);
+          if (isNaN(qty) || !(qty > 0)) { msg("اكتب كمية صحيحة أكبر من صفر (أرقام فقط).", "err"); return; }
+          qty = r3(qty);
           if (kd.value === "out" && qty > cur) { msg("الكمية الصادرة أكبر من الموجود (" + num(cur) + " " + x.unit + ").", "err"); return; }
           mb.disabled = true;
           var r = await db.from("stock_moves").insert({ company_id: company, item_id: x.id, kind: kd.value, qty: qty, note: nt.value.trim() || null, move_date: today() });
@@ -178,7 +203,9 @@
 
         var hs = hist[x.id] || [];
         if (hs.length) {
-          c.appendChild(el("b", "آخر الحركات"));
+          var hb = el("b", "آخر الحركات");
+          hb.style.cssText = "display:block;margin-top:14px;";
+          c.appendChild(hb);
           hs.slice(0, 5).forEach(function(m){
             line(c, (m.kind === "in" ? "وارد " : "صادر ") + num(m.qty) + " " + x.unit + " - " + m.move_date + (m.note ? " - " + m.note : ""));
           });
