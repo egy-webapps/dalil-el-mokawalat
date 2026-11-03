@@ -21,7 +21,7 @@
       var d = new Date();
       return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
     }
-    function num(n){ return Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 3 }); }
+    function num(n){ return "\u2066" + Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 3 }) + "\u2069"; }
 
     var sec = el("section", null, "card hide");
     sec.id = "stock";
