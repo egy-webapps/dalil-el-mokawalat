@@ -2,6 +2,8 @@
   try {
     var prevShow = window.show;
     var cid = null, tk = 0;
+    var DIG = "\\d\\u0660-\\u0669\\u06F0-\\u06F9";
+    var SEP = ".,\\u066B\\u066C\\u060C";
 
     function el(tag, text, cls){
       var e = document.createElement(tag);
@@ -36,7 +38,7 @@
     }
     function r3(x){ return Math.round((Number(x) || 0) * 1000) / 1000; }
 
-    /* تنسيق الرقم للعرض: من غير أي حروف اتجاه مخفية */
+    /* تنسيق الرقم للعرض: من غير حروف اتجاه مخفية */
     function num(n){
       var v = r3(n);
       var neg = v < 0;
@@ -44,6 +46,18 @@
       var p = v.toFixed(3).replace(/\.?0+$/, "").split(".");
       var ip = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
       return (neg ? "-" : "") + ip + (p[1] ? "." + p[1] : "");
+    }
+
+    /* يشيل أي رقم في أول الوحدة (مثال: "١٠ طن" يبقى "طن") */
+    function cleanUnit(u){
+      var s = String(u == null ? "" : u).trim();
+      var re = new RegExp("^[\\s" + DIG + SEP + "]+(?=[^\\s" + DIG + SEP + "])");
+      var t = s.replace(re, "").trim();
+      return t || s || "قطعة";
+    }
+    /* الوحدة المقبولة: كلمة، مش بتبدأ برقم */
+    function validUnit(u){
+      return !new RegExp("^[\\s" + DIG + SEP + "]").test(u);
     }
 
     var sec = el("section", null, "card hide");
@@ -108,18 +122,20 @@
 
       var f = el("form");
       var n = field("text", "اسم الصنف (مثال: أسمنت)", true);
-      var un = field("text", "الوحدة (مثال: كيس، طن، متر)");
+      var un = field("text", "الوحدة (كلمة فقط: طن، كيس، متر)");
       var mn = field("text", "الحد الأدنى للتنبيه (اختياري)", false, true);
       var ab = el("button", "إضافة صنف");
       ab.type = "submit";
       f.appendChild(n); f.appendChild(un); f.appendChild(mn); f.appendChild(ab);
       f.addEventListener("submit", async function(e){
         e.preventDefault();
+        var unitVal = un.value.trim();
+        if (unitVal && !validUnit(unitVal)) { msg("الوحدة لازم تكون كلمة من غير رقم في أولها (مثال: طن، كيس، متر).", "err"); return; }
         var minRaw = mn.value.trim();
         var minVal = minRaw ? toNum(minRaw) : 0;
         if (isNaN(minVal) || minVal < 0) { msg("الحد الأدنى لازم يكون رقم صحيح.", "err"); return; }
         ab.disabled = true;
-        var r = await db.from("stock_items").insert({ company_id: company, name: n.value.trim(), unit: un.value.trim() || "قطعة", min_qty: r3(minVal) });
+        var r = await db.from("stock_items").insert({ company_id: company, name: n.value.trim(), unit: unitVal || "قطعة", min_qty: r3(minVal) });
         ab.disabled = false;
         if (r.error) {
           if (String(r.error.message || "").indexOf("duplicate") > -1) msg("الصنف ده موجود قبل كده.", "err");
@@ -160,12 +176,13 @@
       if (!items.length) { emptyNote(list, "لسه مفيش أصناف. ضيف أول صنف من فوق."); return; }
 
       items.forEach(function(x){
+        var unit = cleanUnit(x.unit);
         var cur = r3(bal[x.id] || 0);
         var low = Number(x.min_qty) > 0 && cur <= Number(x.min_qty);
         var c = el("div", null, "co");
         c.appendChild(el("b", x.name));
-        line(c, "الكمية الحالية: " + num(cur) + " " + x.unit);
-        if (Number(x.min_qty) > 0) line(c, "الحد الأدنى: " + num(x.min_qty) + " " + x.unit);
+        line(c, "الكمية الحالية: " + num(cur) + " " + unit);
+        if (Number(x.min_qty) > 0) line(c, "الحد الأدنى: " + num(x.min_qty) + " " + unit);
         if (low) {
           var w = el("div", "⚠ تنبيه: الكمية قاربت تخلص");
           w.style.cssText = "color:#b00;font-weight:bold;margin:6px 0;";
@@ -191,7 +208,7 @@
           var qty = toNum(q.value);
           if (isNaN(qty) || !(qty > 0)) { msg("اكتب كمية صحيحة أكبر من صفر (أرقام فقط).", "err"); return; }
           qty = r3(qty);
-          if (kd.value === "out" && qty > cur) { msg("الكمية الصادرة أكبر من الموجود (" + num(cur) + " " + x.unit + ").", "err"); return; }
+          if (kd.value === "out" && qty > cur) { msg("الكمية الصادرة أكبر من الموجود (" + num(cur) + " " + unit + ").", "err"); return; }
           mb.disabled = true;
           var r = await db.from("stock_moves").insert({ company_id: company, item_id: x.id, kind: kd.value, qty: qty, note: nt.value.trim() || null, move_date: today() });
           mb.disabled = false;
@@ -207,9 +224,45 @@
           hb.style.cssText = "display:block;margin-top:14px;";
           c.appendChild(hb);
           hs.slice(0, 5).forEach(function(m){
-            line(c, (m.kind === "in" ? "وارد " : "صادر ") + num(m.qty) + " " + x.unit + " - " + m.move_date + (m.note ? " - " + m.note : ""));
+            line(c, (m.kind === "in" ? "وارد " : "صادر ") + num(m.qty) + " " + unit + " - " + m.move_date + (m.note ? " - " + m.note : ""));
           });
         }
+
+        /* تعديل الصنف */
+        var eb = el("button", "تعديل الصنف", "sec");
+        eb.type = "button";
+        eb.style.marginTop = "8px";
+        var ef = el("form");
+        ef.style.cssText = "display:none;margin-top:8px;";
+        var en = field("text", "اسم الصنف", true);
+        en.value = x.name;
+        var eu = field("text", "الوحدة (كلمة فقط: طن، كيس، متر)", true);
+        eu.value = unit;
+        var em = field("text", "الحد الأدنى للتنبيه (اختياري)", false, true);
+        em.value = Number(x.min_qty) > 0 ? String(r3(x.min_qty)) : "";
+        var es = el("button", "حفظ التعديل");
+        es.type = "submit";
+        ef.appendChild(en); ef.appendChild(eu); ef.appendChild(em); ef.appendChild(es);
+        eb.addEventListener("click", function(){
+          ef.style.display = ef.style.display === "none" ? "block" : "none";
+        });
+        ef.addEventListener("submit", async function(e){
+          e.preventDefault();
+          var uv = eu.value.trim();
+          if (!uv || !validUnit(uv)) { msg("الوحدة لازم تكون كلمة من غير رقم في أولها (مثال: طن، كيس، متر).", "err"); return; }
+          var mraw = em.value.trim();
+          var mv = mraw ? toNum(mraw) : 0;
+          if (isNaN(mv) || mv < 0) { msg("الحد الأدنى لازم يكون رقم صحيح.", "err"); return; }
+          es.disabled = true;
+          var r = await db.from("stock_items").update({ name: en.value.trim(), unit: uv, min_qty: r3(mv) }).eq("id", x.id).select("id");
+          es.disabled = false;
+          if (r.error) { msg(arabicError(r.error), "err"); return; }
+          if (!r.data || !r.data.length) { msg("التعديل ما اتحفظش. غالباً مفيش صلاحية تعديل على جدول الأصناف في Supabase.", "err"); return; }
+          msg("تم تعديل الصنف.", "ok");
+          draw();
+        });
+        c.appendChild(eb);
+        c.appendChild(ef);
 
         var del = el("button", "حذف الصنف", "sec");
         del.style.marginTop = "8px";
