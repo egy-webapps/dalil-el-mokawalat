@@ -84,7 +84,8 @@
       body.textContent = "";
       body.appendChild(el("p", "جاري التحميل...", "muted"));
       var w = await db.from("workers").select("id,name,user_id").eq("company_id", cid).order("created_at", { ascending: true });
-      var a = await db.from("attendance").select("worker_id,check_in,check_out,in_dist_m,out_dist_m").eq("company_id", cid).eq("work_date", date);
+      var a = await db.from("attendance").select("worker_id,check_in,check_out,in_dist_m,out_dist_m,in_site,out_site").eq("company_id", cid).eq("work_date", date);
+      if (a.error) a = await db.from("attendance").select("worker_id,check_in,check_out,in_dist_m,out_dist_m").eq("company_id", cid).eq("work_date", date);
       var s = await db.from("work_sites").select("id,name,radius_m,lat,lng").eq("company_id", cid).order("created_at", { ascending: true });
       if (my !== tk) return;
       body.textContent = "";
@@ -206,9 +207,9 @@
       w.data.forEach(function(x){
         var r = map[x.id], c = el("div", null, "co");
         c.appendChild(el("b", x.name));
-        if (r && r.check_in) line(c, "دخل: " + fmt(r.check_in) + (r.in_dist_m != null ? " (على بعد " + r.in_dist_m + " متر)" : ""));
+        if (r && r.check_in) line(c, "دخل: " + fmt(r.check_in) + (r.in_site ? " من " + r.in_site : "") + (r.in_dist_m != null ? " (على بعد " + r.in_dist_m + " متر)" : ""));
         else line(c, "لسه ما دخلش");
-        if (r && r.check_out) line(c, "خرج: " + fmt(r.check_out) + (r.out_dist_m != null ? " (على بعد " + r.out_dist_m + " متر)" : ""));
+        if (r && r.check_out) line(c, "خرج: " + fmt(r.check_out) + (r.out_site ? " من " + r.out_site : "") + (r.out_dist_m != null ? " (على بعد " + r.out_dist_m + " متر)" : ""));
         else if (r && r.check_in) line(c, "لسه ما خرجش");
         if (x.user_id) {
           line(c, "مربوط بحساب");
