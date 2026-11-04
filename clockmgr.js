@@ -11,6 +11,27 @@
         navigator.geolocation.getCurrentPosition(function(p){ res(p.coords); }, function(){ res(null); }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
       });
     }
+    function toNum(v){
+      var s = String(v == null ? "" : v).trim()
+        .replace(/[\u0660-\u0669]/g, function(d){ return String(d.charCodeAt(0) - 1632); })
+        .replace(/[\u06F0-\u06F9]/g, function(d){ return String(d.charCodeAt(0) - 1776); })
+        .replace(/[\u066B\u060C,]/g, ".")
+        .replace(/\s/g, "");
+      if (!/^(\d+\.?\d*|\.\d+)$/.test(s)) return NaN;
+      return Number(s);
+    }
+    function dist(a1, o1, a2, o2){
+      var R = 6371000, t = Math.PI / 180;
+      var dA = (a2 - a1) * t, dO = (o2 - o1) * t;
+      var h = Math.sin(dA / 2) * Math.sin(dA / 2) + Math.cos(a1 * t) * Math.cos(a2 * t) * Math.sin(dO / 2) * Math.sin(dO / 2);
+      return 2 * R * Math.asin(Math.sqrt(h));
+    }
+    function inp(type, ph){
+      var i = document.createElement("input");
+      i.type = type; i.placeholder = ph || "";
+      i.style.marginBottom = "8px";
+      return i;
+    }
 
     var sec = el("section", null, "card hide");
     sec.id = "clockmgr";
@@ -64,7 +85,7 @@
       body.appendChild(el("p", "جاري التحميل...", "muted"));
       var w = await db.from("workers").select("id,name,user_id").eq("company_id", cid).order("created_at", { ascending: true });
       var a = await db.from("attendance").select("worker_id,check_in,check_out,in_dist_m,out_dist_m").eq("company_id", cid).eq("work_date", date);
-      var s = await db.from("work_sites").select("id,name,radius_m").eq("company_id", cid).order("created_at", { ascending: true });
+      var s = await db.from("work_sites").select("id,name,radius_m,lat,lng").eq("company_id", cid).order("created_at", { ascending: true });
       if (my !== tk) return;
       body.textContent = "";
       var err = w.error || a.error || s.error;
@@ -76,6 +97,61 @@
         var d = el("div", null, "co");
         d.appendChild(el("b", x.name));
         line(d, "النطاق: " + x.radius_m + " متر");
+        if (x.lat != null && x.lng != null) {
+          var mp = el("a", "\u{1F4CD} عرض على الخريطة");
+          mp.href = "https://www.google.com/maps?q=" + x.lat + "," + x.lng;
+          mp.target = "_blank";
+          mp.rel = "noopener";
+          mp.style.cssText = "display:inline-block;margin:4px 0;";
+          d.appendChild(mp);
+        }
+
+        var eb = el("button", "تعديل الموقع", "sec");
+        eb.type = "button";
+        eb.style.marginTop = "8px";
+        var ef = el("div");
+        ef.style.cssText = "display:none;margin-top:8px;";
+        var en = inp("text", "اسم الموقع");
+        en.value = x.name;
+        var er = inp("text", "النطاق بالمتر (مثال: 150)");
+        er.setAttribute("inputmode", "decimal");
+        er.value = String(x.radius_m);
+        var es = el("button", "حفظ التعديل");
+        es.type = "button";
+        var rl = el("button", "نقل الموقع لمكاني الحالي", "sec");
+        rl.type = "button";
+        ef.appendChild(en); ef.appendChild(er); ef.appendChild(es); ef.appendChild(rl);
+        eb.addEventListener("click", function(){ ef.style.display = ef.style.display === "none" ? "block" : "none"; });
+
+        es.addEventListener("click", async function(){
+          var nmv = en.value.trim();
+          var rv = toNum(er.value);
+          if (!nmv) { msg("اكتب اسم الموقع.", "err"); return; }
+          if (isNaN(rv) || rv < 20 || rv > 2000) { msg("النطاق لازم يكون رقم بين 20 و2000 متر.", "err"); return; }
+          es.disabled = true;
+          var r = await db.from("work_sites").update({ name: nmv, radius_m: Math.round(rv) }).eq("id", x.id).select("id");
+          es.disabled = false;
+          if (r.error) { msg(arabicError(r.error), "err"); return; }
+          if (!r.data || !r.data.length) { msg("التعديل ما اتحفظش. غالباً مفيش صلاحية تعديل على جدول المواقع في Supabase.", "err"); return; }
+          msg("تم تعديل الموقع.", "ok");
+          draw();
+        });
+
+        rl.addEventListener("click", async function(){
+          if (!confirm("تنقل موقع \"" + x.name + "\" لمكانك الحالي؟")) return;
+          rl.disabled = true;
+          msg("جاري تحديد موقعك...", "ok");
+          var c = await getPos();
+          if (!c) { rl.disabled = false; msg("مقدرتش أحدد موقعك. فعّل الموقع (GPS) واسمح للموقع بالوصول.", "err"); return; }
+          if (c.accuracy > 100) { rl.disabled = false; msg("دقة الموقع ضعيفة (" + Math.round(c.accuracy) + " متر). اطلع مكان مفتوح وجرّب تاني.", "err"); return; }
+          var r = await db.from("work_sites").update({ lat: c.latitude, lng: c.longitude }).eq("id", x.id).select("id");
+          rl.disabled = false;
+          if (r.error) { msg(arabicError(r.error), "err"); return; }
+          if (!r.data || !r.data.length) { msg("التعديل ما اتحفظش. غالباً مفيش صلاحية تعديل على جدول المواقع في Supabase.", "err"); return; }
+          msg("تم نقل الموقع لمكانك الحالي.", "ok");
+          draw();
+        });
+
         var del = el("button", "حذف الموقع", "sec");
         del.style.marginTop = "8px";
         del.addEventListener("click", async function(){
@@ -84,21 +160,37 @@
           if (r.error) { msg(arabicError(r.error), "err"); return; }
           draw();
         });
+        d.appendChild(eb);
+        d.appendChild(ef);
         d.appendChild(del);
         body.appendChild(d);
       });
+
       var nm = document.createElement("input");
       nm.type = "text";
-      nm.placeholder = "اسم الموقع (مثال: مشروع المنيا)";
+      nm.placeholder = "اسم الموقع (مثال: الادارة)";
       nm.style.marginBottom = "8px";
       var ab = el("button", "حدد موقع الشغل هنا (وإنت واقف فيه)");
       ab.addEventListener("click", async function(){
+        var nmv = nm.value.trim();
+        if (!nmv) { msg("اكتب اسم الموقع الأول (مثال: الادارة).", "err"); return; }
         ab.disabled = true;
         msg("جاري تحديد موقعك...", "ok");
         var c = await getPos();
         if (!c) { ab.disabled = false; msg("مقدرتش أحدد موقعك. فعّل الموقع (GPS) واسمح للموقع بالوصول.", "err"); return; }
         if (c.accuracy > 100) { ab.disabled = false; msg("دقة الموقع ضعيفة (" + Math.round(c.accuracy) + " متر). اطلع مكان مفتوح وجرّب تاني.", "err"); return; }
-        var r = await db.from("work_sites").insert({ company_id: cid, name: nm.value.trim() || "الموقع", lat: c.latitude, lng: c.longitude, radius_m: 150 });
+        var near = null;
+        s.data.forEach(function(x){
+          if (x.lat == null || x.lng == null) return;
+          var dd = dist(c.latitude, c.longitude, x.lat, x.lng);
+          if (dd < 50 && (!near || dd < near.d)) near = { d: dd, name: x.name };
+        });
+        if (near && !confirm("فيه موقع قريب جداً (\"" + near.name + "\" على بعد " + Math.round(near.d) + " متر). تضيف موقع جديد برضه؟")) {
+          ab.disabled = false;
+          hideMsg();
+          return;
+        }
+        var r = await db.from("work_sites").insert({ company_id: cid, name: nmv, lat: c.latitude, lng: c.longitude, radius_m: 150 });
         ab.disabled = false;
         if (r.error) { msg(arabicError(r.error), "err"); return; }
         msg("تم تحديد موقع الشغل.", "ok");
