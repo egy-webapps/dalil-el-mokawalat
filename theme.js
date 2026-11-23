@@ -1,4 +1,4 @@
-/* theme.js v2 - مظهر عصري لموقع المقاولات */
+/* theme.js v3 - مظهر عصري لموقع المقاولات */
 (function () {
   'use strict';
 
@@ -76,9 +76,8 @@
     ['المخزن', '\u{1F4E6}'], ['الوظايف', '\u{1F477}'], ['المشاريع', '\u{1F3D7}\uFE0F'],
     ['المقاولين من الباطن', '\u{1F91D}'], ['التوريدات', '\u{1F69A}'], ['الفريق', '\u{1F465}'],
     ['بصمة الحضور', '\u{1F552}'], ['بصمة العمال', '\u261D\uFE0F'], ['طلبات الفحص', '\u2705'],
-  ['ملخص الشركة', '\u{1F4CB}'], ['المستخلصات', '\u{1F9FE}'],
-  ['تسجيل الخروج', '\u{1F6AA}']
-     
+    ['ملخص الشركة', '\u{1F4CB}'], ['المستخلصات', '\u{1F9FE}'], ['لوحة الأدمن', '\u{1F6E1}\uFE0F'],
+    ['تسجيل الخروج', '\u{1F6AA}']
   ];
   var timer = null;
 
@@ -101,6 +100,10 @@
       tiles[i].classList.remove('wide');
     }
     if (tiles.length % 2 === 1) tiles[tiles.length - 1].classList.add('wide');
+
+    /* تسجيل الخروج دايماً آخر زرار */
+    var lo = document.getElementById('logoutBtn');
+    if (lo && p.lastElementChild !== lo) p.appendChild(lo);
   }
 
   function later() { clearTimeout(timer); timer = setTimeout(icons, 60); }
